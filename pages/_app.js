@@ -21,14 +21,14 @@ function MyApp({ Component, pageProps }) {
     const wallets = useMemo(
         () => [
             new PhantomWalletAdapter(),
-            new SolflareWalletAdapter({ network }),
+            new SolflareWalletAdapter(),
             new TorusWalletAdapter(),
         ],
-        [network]
+        []
     );
 
     // RPC Endpoint
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+    const endpoint = useMemo(() => process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl(network), [network]);
 
     return (
         <ConnectionProvider endpoint={endpoint}>
