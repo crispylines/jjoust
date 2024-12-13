@@ -5,17 +5,26 @@ const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateImage(prompt) {
-    // Implement your Stability AI image generation here
-    // This is a placeholder
-    return "https://placeholder.com/image.jpg";
+    try {
+        // Add your Stability AI implementation here
+        // For now, return a placeholder
+        return "https://via.placeholder.com/400";
+    } catch (error) {
+        console.error('Error generating image:', error);
+        throw new Error('Failed to generate image');
+    }
 }
 
 function extractWinner(description, player1Wallet, player2Wallet) {
-    // Simple winner extraction logic - you might want to make this more sophisticated
-    const lowerDesc = description.toLowerCase();
-    if (lowerDesc.includes("player 1 wins")) return player1Wallet;
-    if (lowerDesc.includes("player 2 wins")) return player2Wallet;
-    return player1Wallet; // Default to player 1 if no clear winner
+    try {
+        const lowerDesc = description.toLowerCase();
+        if (lowerDesc.includes("player 1 wins")) return player1Wallet;
+        if (lowerDesc.includes("player 2 wins")) return player2Wallet;
+        return player1Wallet; // Default to player 1 if no clear winner
+    } catch (error) {
+        console.error('Error extracting winner:', error);
+        return player1Wallet;
+    }
 }
 
 export default async function handler(req, res) {
@@ -25,7 +34,12 @@ export default async function handler(req, res) {
 
     const { roomId, prompt, walletAddress } = req.body;
 
+    if (!roomId || !prompt || !walletAddress) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     try {
+        // Get room data
         const room = await prisma.room.findUnique({
             where: { id: roomId }
         });
@@ -34,13 +48,12 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: 'Room not found' });
         }
 
-        // Check if room is already completed
         if (room.completed) {
-            return res.status(400).json({ error: 'This battle has already ended' });
+            return res.status(400).json({ error: 'Battle already completed' });
         }
 
         // Update room with player's prompt
-        const isFirstPlayer = room.players.length === 0;
+        const isFirstPlayer = !room.players || room.players.length === 0;
         const updateData = isFirstPlayer 
             ? { 
                 prompt1: prompt, 
@@ -49,64 +62,58 @@ export default async function handler(req, res) {
               }
             : { 
                 prompt2: prompt, 
-                players: [...room.players, walletAddress],
+                players: [...(room.players || []), walletAddress],
                 status: 'battle_in_progress'
               };
 
-        await prisma.room.update({
+        const updatedRoom = await prisma.room.update({
             where: { id: roomId },
             data: updateData
         });
 
         // If second player, generate battle
         if (!isFirstPlayer) {
-            const [image1Url, image2Url] = await Promise.all([
-                generateImage(room.prompt1),
-                generateImage(prompt)
-            ]);
+            try {
+                const [image1Url, image2Url] = await Promise.all([
+                    generateImage(room.prompt1),
+                    generateImage(prompt)
+                ]);
 
-            const battlePrompt = `Describe a medieval-style fight between these two warriors: ${room.prompt1} VS ${prompt}. Be descriptive and detailed, including their weapons and armor. Clearly state who wins at the end.`;
-            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-            const result = await model.generateContent(battlePrompt);
-            const battleDescription = result.response.text();
+                const battlePrompt = `Describe a medieval-style fight between these two warriors: ${room.prompt1} VS ${prompt}. Be descriptive and detailed, including their weapons and armor. Clearly state who wins at the end.`;
+                const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+                const result = await model.generateContent(battlePrompt);
+                const battleDescription = result.response.text();
 
-            const winner = extractWinner(battleDescription, room.players[0], walletAddress);
+                const winner = extractWinner(battleDescription, room.players[0], walletAddress);
 
-            await prisma.room.update({
-                where: { id: roomId },
-                data: {
-                    image1Url,
-                    image2Url,
-                    battleDescription,
-                    winner,
-                    completed: true,
-                    status: 'completed'
-                }
-            });
-
-            // Schedule room cleanup
-            setTimeout(async () => {
-                await prisma.room.update({
+                const finalRoom = await prisma.room.update({
                     where: { id: roomId },
-                    data: { active: false }
+                    data: {
+                        image1Url,
+                        image2Url,
+                        battleDescription,
+                        winner,
+                        completed: true,
+                        status: 'completed'
+                    }
                 });
-            }, 1000 * 60 * 30); // Clean up after 30 minutes
 
-            return res.status(200).json({ 
-                image1Url, 
-                image2Url, 
-                battleDescription, 
-                winner,
-                status: 'completed'
-            });
+                return res.status(200).json(finalRoom);
+            } catch (error) {
+                console.error('Battle generation error:', error);
+                return res.status(500).json({ 
+                    error: 'Failed to generate battle',
+                    details: error.message 
+                });
+            }
         }
 
-        res.status(200).json({ 
-            message: 'Prompt submitted successfully',
-            status: 'waiting_for_opponent'
-        });
+        res.status(200).json(updatedRoom);
     } catch (error) {
         console.error('Generate joust error:', error);
-        res.status(500).json({ error: 'Failed to generate joust', details: error.message });
+        res.status(500).json({ 
+            error: 'Failed to generate joust', 
+            details: error.message 
+        });
     }
 }
