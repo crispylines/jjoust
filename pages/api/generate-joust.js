@@ -33,23 +33,34 @@ export default async function handler(req, res) {
     }
 
     const { roomId, prompt, walletAddress } = req.body;
+    console.log('Received request:', { roomId, prompt, walletAddress });
 
     if (!roomId || !prompt || !walletAddress) {
+        console.log('Missing required fields:', { roomId, prompt, walletAddress });
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     try {
         // Get room data
+        console.log('Fetching room:', roomId);
         const room = await prisma.room.findUnique({
             where: { id: roomId }
         });
 
         if (!room) {
+            console.log('Room not found:', roomId);
             return res.status(404).json({ error: 'Room not found' });
         }
 
+        console.log('Found room:', room);
+
         if (room.completed) {
             return res.status(400).json({ error: 'Battle already completed' });
+        }
+
+        // Check if player already submitted
+        if (room.players?.includes(walletAddress)) {
+            return res.status(400).json({ error: 'You have already submitted a prompt' });
         }
 
         // Update room with player's prompt
@@ -66,25 +77,35 @@ export default async function handler(req, res) {
                 status: 'battle_in_progress'
               };
 
+        console.log('Updating room with:', updateData);
+        
         const updatedRoom = await prisma.room.update({
             where: { id: roomId },
             data: updateData
         });
 
+        console.log('Room updated:', updatedRoom);
+
         // If second player, generate battle
         if (!isFirstPlayer) {
             try {
+                console.log('Generating battle...');
                 const [image1Url, image2Url] = await Promise.all([
                     generateImage(room.prompt1),
                     generateImage(prompt)
                 ]);
 
                 const battlePrompt = `Describe a medieval-style fight between these two warriors: ${room.prompt1} VS ${prompt}. Be descriptive and detailed, including their weapons and armor. Clearly state who wins at the end.`;
+                console.log('Battle prompt:', battlePrompt);
+
                 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
                 const result = await model.generateContent(battlePrompt);
                 const battleDescription = result.response.text();
 
+                console.log('Battle description generated:', battleDescription);
+
                 const winner = extractWinner(battleDescription, room.players[0], walletAddress);
+                console.log('Winner determined:', winner);
 
                 const finalRoom = await prisma.room.update({
                     where: { id: roomId },
@@ -98,12 +119,14 @@ export default async function handler(req, res) {
                     }
                 });
 
+                console.log('Final room update:', finalRoom);
                 return res.status(200).json(finalRoom);
             } catch (error) {
                 console.error('Battle generation error:', error);
                 return res.status(500).json({ 
                     error: 'Failed to generate battle',
-                    details: error.message 
+                    details: error.message,
+                    stack: error.stack
                 });
             }
         }
@@ -113,7 +136,8 @@ export default async function handler(req, res) {
         console.error('Generate joust error:', error);
         res.status(500).json({ 
             error: 'Failed to generate joust', 
-            details: error.message 
+            details: error.message,
+            stack: error.stack
         });
     }
 }
