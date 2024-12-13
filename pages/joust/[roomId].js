@@ -11,22 +11,31 @@ export default function JoustRoom({ roomId }) {
   const [isLoading, setIsLoading] = useState(false);
   const [battleImages, setBattleImages] = useState({ image1: null, image2: null });
   const [battleDescription, setBattleDescription] = useState('');
+  const [status, setStatus] = useState('waiting');
 
   useEffect(() => {
-    const fetchRoomData = async () => {
-      try {
-        const response = await fetch(`/api/rooms/${roomId}`);
-        const data = await response.json();
-        setRoomData(data);
-      } catch (error) {
-        console.error('Error fetching room data:', error);
-      }
-    };
-    
-    if (roomId) {
-      fetchRoomData();
-    }
+    const pollInterval = setInterval(fetchRoomData, 3000); // Poll every 3 seconds
+    return () => clearInterval(pollInterval);
   }, [roomId]);
+
+  const fetchRoomData = async () => {
+    try {
+      const response = await fetch(`/api/rooms/${roomId}`);
+      const data = await response.json();
+      setRoomData(data);
+      
+      // Update status based on room state
+      if (data.completed) {
+        setStatus('completed');
+      } else if (data.players?.length === 1) {
+        setStatus('waiting_for_opponent');
+      } else if (data.players?.length === 2) {
+        setStatus('battle_in_progress');
+      }
+    } catch (error) {
+      console.error('Error fetching room data:', error);
+    }
+  };
 
   const handlePromptSubmit = async () => {
     if (!prompt || !publicKey) return;
@@ -101,6 +110,21 @@ export default function JoustRoom({ roomId }) {
     <div className="joust-section">
       <h1>Joust Room: {roomId}</h1>
       
+      <div className="status-section">
+        {status === 'waiting_for_opponent' && (
+          <div className="status-message waiting">
+            Waiting for opponent to join...
+            <div className="spinner"></div>
+          </div>
+        )}
+        {status === 'battle_in_progress' && !roomData?.completed && (
+          <div className="status-message in-progress">
+            Battle in progress...
+            <div className="spinner"></div>
+          </div>
+        )}
+      </div>
+
       {roomData && (
         <div className="room-info">
           <p>Status: {roomData.status}</p>

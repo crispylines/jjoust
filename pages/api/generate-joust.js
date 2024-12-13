@@ -26,7 +26,6 @@ export default async function handler(req, res) {
     const { roomId, prompt, walletAddress } = req.body;
 
     try {
-        // Get room data
         const room = await prisma.room.findUnique({
             where: { id: roomId }
         });
@@ -35,11 +34,24 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: 'Room not found' });
         }
 
+        // Check if room is already completed
+        if (room.completed) {
+            return res.status(400).json({ error: 'This battle has already ended' });
+        }
+
         // Update room with player's prompt
         const isFirstPlayer = room.players.length === 0;
         const updateData = isFirstPlayer 
-            ? { prompt1: prompt, players: [walletAddress] }
-            : { prompt2: prompt, players: [...room.players, walletAddress] };
+            ? { 
+                prompt1: prompt, 
+                players: [walletAddress],
+                status: 'waiting_for_opponent'
+              }
+            : { 
+                prompt2: prompt, 
+                players: [...room.players, walletAddress],
+                status: 'battle_in_progress'
+              };
 
         await prisma.room.update({
             where: { id: roomId },
@@ -67,19 +79,32 @@ export default async function handler(req, res) {
                     image2Url,
                     battleDescription,
                     winner,
-                    completed: true
+                    completed: true,
+                    status: 'completed'
                 }
             });
+
+            // Schedule room cleanup
+            setTimeout(async () => {
+                await prisma.room.update({
+                    where: { id: roomId },
+                    data: { active: false }
+                });
+            }, 1000 * 60 * 30); // Clean up after 30 minutes
 
             return res.status(200).json({ 
                 image1Url, 
                 image2Url, 
                 battleDescription, 
-                winner 
+                winner,
+                status: 'completed'
             });
         }
 
-        res.status(200).json({ message: 'Prompt submitted successfully' });
+        res.status(200).json({ 
+            message: 'Prompt submitted successfully',
+            status: 'waiting_for_opponent'
+        });
     } catch (error) {
         console.error('Generate joust error:', error);
         res.status(500).json({ error: 'Failed to generate joust', details: error.message });
