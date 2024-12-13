@@ -1,0 +1,119 @@
+  /* Basic global styles - customize as needed */
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: #f5f5f5;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+  }
+  
+  /* Container for the entire page */
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    background-color: #f7f7f7;
+  }
+  
+  /* Title styling */
+  .title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+  }
+  
+  /* Wallet connection section */
+  .wallet-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  .wallet-info {
+    margin-top: 10px;
+    font-size: 1rem;
+    color: #555;
+    text-align: center;
+  }
+  
+  /* Button for fetching balance */
+  .balance-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+  }
+  
+  .balance-button:hover {
+    background-color: #367c39;
+  }
+  
+  .balance-info {
+    margin-top: 10px;
+    font-size: 1rem;
+    color: #555;
+    text-align: center;
+  }
+  
+  /* Joust game section */
+  .joust-section {
+    width: 100%;
+    max-width: 800px;
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+
+/* Add these new styles */
+.registration-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.registration-section form {
+    display: flex;
+    gap: 10px;
+}
+
+.registration-section input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.registration-section button {
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.registration-section button:hover {
+    background: #367c39;
+} 
+  
