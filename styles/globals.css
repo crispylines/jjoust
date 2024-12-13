@@ -71,17 +71,56 @@
   
   /* Joust game section */
   .joust-section {
-    width: 100%;
+    padding: 2rem;
     max-width: 800px;
-    background-color: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
   }
 
+  .prompt-section {
+    margin: 2rem 0;
+  }
 
-/* Add these new styles */
-.registration-section {
+  .prompt-section textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .battle-section {
+    margin: 2rem 0;
+  }
+
+  .battle-images {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  .battle-images img {
+    max-width: 45%;
+    border-radius: 8px;
+  }
+
+  .claim-button {
+    background: #4CAF50;
+    color: white;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .claim-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  
+  /* Add these new styles */
+  .registration-section {
     margin: 20px 0;
     padding: 20px;
     background: white;
@@ -89,31 +128,31 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     width: 100%;
     max-width: 400px;
-}
-
-.registration-section form {
+  }
+  
+  .registration-section form {
     display: flex;
     gap: 10px;
-}
-
-.registration-section input {
+  }
+  
+  .registration-section input {
     flex: 1;
     padding: 8px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
-}
-
-.registration-section button {
+  }
+  
+  .registration-section button {
     padding: 8px 16px;
     background: #4CAF50;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-}
-
-.registration-section button:hover {
+  }
+  
+  .registration-section button:hover {
     background: #367c39;
-} 
+  } 
   

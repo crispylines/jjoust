@@ -9,104 +9,152 @@ export default function JoustRoom({ roomId }) {
   const [roomData, setRoomData] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  // ... other state variables for images, battle description, winner
+  const [battleImages, setBattleImages] = useState({ image1: null, image2: null });
+  const [battleDescription, setBattleDescription] = useState('');
 
   useEffect(() => {
-    // Fetch room data (from database or on-chain) based on roomId
     const fetchRoomData = async () => {
-      // ... your logic to fetch data
-      setRoomData(fetchedData); 
+      try {
+        const response = await fetch(`/api/rooms/${roomId}`);
+        const data = await response.json();
+        setRoomData(data);
+      } catch (error) {
+        console.error('Error fetching room data:', error);
+      }
     };
-    fetchRoomData();
+    
+    if (roomId) {
+      fetchRoomData();
+    }
   }, [roomId]);
 
   const handlePromptSubmit = async () => {
+    if (!prompt || !publicKey) return;
+    
     setIsLoading(true);
-    // 1. Store prompt (database or on-chain)
-    // 2. Check if both prompts are submitted
-    // 3. If both are submitted, trigger API calls (see below)
-
-    // Example API call (using Next.js API route)
-    const res = await fetch('/api/generate-joust', {
-      method: 'POST',
-      body: JSON.stringify({ roomId, prompt1: /*...*/, prompt2: /*...*/ }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const data = await res.json();
-    // Update state with image URLs, battle description, winner
-
-    setIsLoading(false);
+    try {
+      const res = await fetch('/api/generate-joust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          roomId, 
+          prompt,
+          walletAddress: publicKey.toString()
+        })
+      });
+      
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      // Update room data with new information
+      setRoomData(prevData => ({
+        ...prevData,
+        ...data
+      }));
+      
+    } catch (error) {
+      console.error('Error submitting prompt:', error);
+      alert('Failed to submit prompt. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClaimSpoils = async () => {
-    if (!publicKey) return; // Wallet not connected
+    if (!publicKey) return;
     setIsLoading(true);
 
     try {
-        // Logic to get program id for smart contract
-        const programId = new PublicKey("your program id here");
+      const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID);
+      const transaction = new Transaction().add(
+        new TransactionInstruction({
+          keys: [
+            { pubkey: publicKey, isSigner: true, isWritable: true },
+            { pubkey: new PublicKey(process.env.NEXT_PUBLIC_HOUSE_WALLET), isSigner: false, isWritable: true }
+          ],
+          programId,
+          data: Buffer.from(Uint8Array.of(0, ...new BN(roomId).toArray("le", 8)))
+        })
+      );
 
-        // Create a transaction to interact with your smart contract
-        const transaction = new Transaction().add(
-            // Call the instruction to claim spoils on your smart contract
-            // You'll need to replace 'claimSpoils' with the actual instruction name
-            // in your smart contract, and provide any necessary parameters
-            // it may require, such as proof of winning.
-            new TransactionInstruction({
-                keys: [
-                    { pubkey: publicKey, isSigner: true, isWritable: true },
-                    // Add other accounts that your smart contract instruction requires
-                    // ...
-                ],
-                programId,
-                data: Buffer.from(Uint8Array.of(0, ...new BN(roomId).toArray("le", 8))), // Example data, replace with actual instruction data
-            })
-        );
+      const signature = await sendTransaction(transaction, connection);
+      const latestBlockHash = await connection.getLatestBlockhash();
+      
+      await connection.confirmTransaction({
+        blockhash: latestBlockHash.blockhash,
+        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+        signature
+      });
 
-        // Send the transaction
-        const signature = await sendTransaction(transaction, connection);
-
-        // Confirm the transaction
-        const latestBlockHash = await connection.getLatestBlockhash();
-        await connection.confirmTransaction({
-            blockhash: latestBlockHash.blockhash,
-            lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-            signature: signature,
-        });
-
-        alert("Spoils claimed successfully!");
+      alert("Spoils claimed successfully!");
     } catch (error) {
-        console.error("Error claiming spoils:", error);
-        alert("Failed to claim spoils. Please try again.");
+      console.error("Error claiming spoils:", error);
+      alert("Failed to claim spoils. Please try again.");
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-};
+  };
 
   return (
-    <div>
+    <div className="joust-section">
       <h1>Joust Room: {roomId}</h1>
-      {/* Display room status, participants, etc. */}
-      {/* ... */}
-      {/* Prompt input area */}
-      <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-      <button onClick={handlePromptSubmit} disabled={isLoading}>Submit Prompt</button>
+      
+      {roomData && (
+        <div className="room-info">
+          <p>Status: {roomData.status}</p>
+          <p>Players: {roomData.players?.length || 0}/2</p>
+        </div>
+      )}
 
-      {/* Display images, battle description */}
-      {/* ... */}
+      {!roomData?.completed && (
+        <div className="prompt-section">
+          <textarea 
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Describe your warrior..."
+            disabled={isLoading}
+          />
+          <button 
+            onClick={handlePromptSubmit} 
+            disabled={isLoading || !prompt}
+          >
+            {isLoading ? 'Submitting...' : 'Submit Prompt'}
+          </button>
+        </div>
+      )}
 
-      {/* Claim button (only for the winner) */}
+      {roomData?.battleDescription && (
+        <div className="battle-section">
+          <h2>Battle Description</h2>
+          <p>{roomData.battleDescription}</p>
+          {roomData.image1Url && (
+            <div className="battle-images">
+              <img src={roomData.image1Url} alt="Warrior 1" />
+              <img src={roomData.image2Url} alt="Warrior 2" />
+            </div>
+          )}
+        </div>
+      )}
+
       {roomData?.winner === publicKey?.toBase58() && (
-        <button onClick={handleClaimSpoils} disabled={isLoading}>Claim Spoils</button>
+        <button 
+          onClick={handleClaimSpoils} 
+          disabled={isLoading}
+          className="claim-button"
+        >
+          {isLoading ? 'Claiming...' : 'Claim Spoils'}
+        </button>
       )}
     </div>
   );
 }
 
 export async function getServerSideProps({ params }) {
-    return {
-        props: {
-            roomId: params.roomId
-        }
-    };
+  return {
+    props: {
+      roomId: params.roomId
+    }
+  };
 }
