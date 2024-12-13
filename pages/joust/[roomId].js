@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Connection, PublicKey, Transaction, SystemProgram, TransactionInstruction } from '@solana/web3.js'; 
 import BN from 'bn.js';
@@ -9,22 +9,17 @@ export default function JoustRoom({ roomId }) {
   const [roomData, setRoomData] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [battleImages, setBattleImages] = useState({ image1: null, image2: null });
-  const [battleDescription, setBattleDescription] = useState('');
+  const [error, setError] = useState(null);
   const [status, setStatus] = useState('waiting');
 
-  useEffect(() => {
-    const pollInterval = setInterval(fetchRoomData, 3000); // Poll every 3 seconds
-    return () => clearInterval(pollInterval);
-  }, [roomId]);
-
-  const fetchRoomData = async () => {
+  const fetchRoomData = useCallback(async () => {
     try {
       const response = await fetch(`/api/rooms/${roomId}`);
+      if (!response.ok) throw new Error('Failed to fetch room data');
+      
       const data = await response.json();
       setRoomData(data);
       
-      // Update status based on room state
       if (data.completed) {
         setStatus('completed');
       } else if (data.players?.length === 1) {
@@ -34,13 +29,22 @@ export default function JoustRoom({ roomId }) {
       }
     } catch (error) {
       console.error('Error fetching room data:', error);
+      setError(error.message);
     }
-  };
+  }, [roomId]);
+
+  useEffect(() => {
+    fetchRoomData();
+    const pollInterval = setInterval(fetchRoomData, 3000);
+    return () => clearInterval(pollInterval);
+  }, [fetchRoomData]);
 
   const handlePromptSubmit = async () => {
     if (!prompt || !publicKey) return;
     
     setIsLoading(true);
+    setError(null);
+    
     try {
       const res = await fetch('/api/generate-joust', {
         method: 'POST',
@@ -52,20 +56,23 @@ export default function JoustRoom({ roomId }) {
         })
       });
       
-      const data = await res.json();
-      if (data.error) {
-        throw new Error(data.error);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to submit prompt');
       }
       
-      // Update room data with new information
+      const data = await res.json();
       setRoomData(prevData => ({
         ...prevData,
         ...data
       }));
       
+      setPrompt(''); // Clear prompt after successful submission
+      
     } catch (error) {
       console.error('Error submitting prompt:', error);
-      alert('Failed to submit prompt. Please try again.');
+      setError(error.message);
+      alert(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +117,12 @@ export default function JoustRoom({ roomId }) {
     <div className="joust-section">
       <h1>Joust Room: {roomId}</h1>
       
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+
       <div className="status-section">
         {status === 'waiting_for_opponent' && (
           <div className="status-message waiting">
